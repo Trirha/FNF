@@ -1,0 +1,61 @@
+name: Build FNF web and deploy to Pages
+
+# Run it by hand: Actions tab -> "Build FNF web and deploy to Pages" -> Run workflow
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Pulls the official game source plus the assets submodule.
+      - name: Get Funkin source and assets
+        uses: actions/checkout@v4
+        with:
+          repository: FunkinCrew/Funkin
+          submodules: recursive
+
+      - name: Install Haxe 4.3.7
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+
+      - name: Install libraries pinned by the game (hmm.json)
+        run: |
+          haxelib --global install hmm
+          haxelib --global run hmm setup
+          hmm install
+
+      - name: Set up Lime
+        run: yes | haxelib run lime setup || true
+
+      - name: Build HTML5
+        run: haxelib run lime build html5 -release
+
+      - name: Show output size
+        run: du -sh export/release/html5/bin && ls export/release/html5/bin
+
+      - name: Package site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: export/release/html5/bin
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
