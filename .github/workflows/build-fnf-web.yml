@@ -13,6 +13,10 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  # Change v1 to v2 (etc.) to throw away the saved setup and rebuild it from scratch.
+  CACHE_VERSION: v1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,13 +33,24 @@ jobs:
         with:
           haxe-version: 4.3.7
 
+      # Restore the saved setup (libraries, hxcpp tools, lime.ndll, Font.hx patch).
+      # The key changes only when the game's pinned library versions (hmm.json) change.
+      - name: Restore saved setup
+        id: setup-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .haxelib
+          key: fnf-setup-${{ env.CACHE_VERSION }}-${{ hashFiles('hmm.json') }}
+
       - name: Install libraries pinned by the game (hmm.json)
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: |
           haxelib --global install hmm
           haxelib --global run hmm setup
           hmm install
 
       - name: Install system packages needed to compile Lime's native file
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y g++ libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
@@ -47,19 +62,23 @@ jobs:
             libpipewire-0.3-dev libsndio-dev libjack-jackd2-dev libibus-1.0-dev libxtst-dev
 
       - name: Build hxcpp tools (hxcpp comes from git, so it is not pre-built)
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: |
           cd .haxelib/hxcpp/git/tools/hxcpp
           haxe compile.hxml
 
       - name: Set up Lime
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: yes | haxelib run lime setup || true
 
       - name: Build Lime's native file (lime.ndll)
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: |
           haxelib run lime rebuild linux
           ls .haxelib/lime/git/ndll
 
       - name: Patch Lime Font.hx (missing Log import on HTML5)
+        if: steps.setup-cache.outputs.cache-hit != 'true'
         run: |
           F=.haxelib/lime/git/src/lime/text/Font.hx
           echo "--- Log mentions before patch ---"
@@ -67,6 +86,14 @@ jobs:
           sed -i '0,/^package lime.text;/s//package lime.text;\n\nimport lime.utils.Log;/' "$F"
           echo "--- top of file after patch ---"
           head -12 "$F"
+
+      # Saved BEFORE the game build, so a failed game build still keeps this setup.
+      - name: Save setup for next time
+        if: steps.setup-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .haxelib
+          key: fnf-setup-${{ env.CACHE_VERSION }}-${{ hashFiles('hmm.json') }}
 
       - name: Build HTML5
         run: haxelib run lime build html5 -release
