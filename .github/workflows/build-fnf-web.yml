@@ -59,6 +59,15 @@ jobs:
           haxelib run lime rebuild linux
           ls .haxelib/lime/git/ndll
 
+      - name: Patch Lime Font.hx (missing Log import on HTML5)
+        run: |
+          F=.haxelib/lime/git/src/lime/text/Font.hx
+          echo "--- Log mentions before patch ---"
+          grep -n "Log" "$F" | head -20
+          sed -i '0,/^package lime.text;/s//package lime.text;\n\nimport lime.utils.Log;/' "$F"
+          echo "--- top of file after patch ---"
+          head -12 "$F"
+
       - name: Build HTML5
         run: haxelib run lime build html5 -release
 
