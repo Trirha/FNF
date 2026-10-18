@@ -35,8 +35,25 @@ jobs:
           haxelib --global run hmm setup
           hmm install
 
+      - name: Install system packages needed to compile Lime's native file
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
+            libx11-dev libxext-dev libxi-dev libxrandr-dev libxinerama-dev libpulse-dev \
+            libvlc-dev libvlccore-dev
+
+      - name: Build hxcpp tools (hxcpp comes from git, so it is not pre-built)
+        run: |
+          cd .haxelib/hxcpp/git/tools/hxcpp
+          haxe compile.hxml
+
       - name: Set up Lime
         run: yes | haxelib run lime setup || true
+
+      - name: Build Lime's native file (lime.ndll)
+        run: |
+          haxelib run lime rebuild linux
+          ls .haxelib/lime/git/ndll
 
       - name: Build HTML5
         run: haxelib run lime build html5 -release
