@@ -40,7 +40,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++ libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
             libx11-dev libxext-dev libxi-dev libxrandr-dev libxinerama-dev libpulse-dev \
-            libvlc-dev libvlccore-dev
+            libvlc-dev libvlccore-dev \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libdrm-dev libgbm-dev libegl1-mesa-dev libxcursor-dev libxfixes-dev libxss-dev \
+            libudev-dev libdbus-1-dev
 
       - name: Build hxcpp tools (hxcpp comes from git, so it is not pre-built)
         run: |
