@@ -77,16 +77,6 @@ jobs:
           haxelib run lime rebuild linux
           ls .haxelib/lime/git/ndll
 
-      - name: Patch Lime Font.hx (missing Log import on HTML5)
-        if: steps.setup-cache.outputs.cache-hit != 'true'
-        run: |
-          F=.haxelib/lime/git/src/lime/text/Font.hx
-          echo "--- Log mentions before patch ---"
-          grep -n "Log" "$F" | head -20
-          sed -i '0,/^package lime.text;/s//package lime.text;\n\nimport lime.utils.Log;/' "$F"
-          echo "--- top of file after patch ---"
-          head -12 "$F"
-
       # Saved BEFORE the game build, so a failed game build still keeps this setup.
       - name: Save setup for next time
         if: steps.setup-cache.outputs.cache-hit != 'true'
@@ -94,6 +84,23 @@ jobs:
         with:
           path: .haxelib
           key: fnf-setup-${{ env.CACHE_VERSION }}-${{ hashFiles('hmm.json') }}
+
+      # Runs on EVERY build (not skipped by the cache) and is safe to repeat.
+      # Rewrites bare "Log." to the full "lime.utils.Log." inside Lime's Font.hx.
+      - name: Patch Lime Font.hx (Log not found on HTML5)
+        run: |
+          F=.haxelib/lime/git/src/lime/text/Font.hx
+          echo "--- first 25 lines ---"
+          head -25 "$F"
+          echo "--- Log lines before patch ---"
+          grep -n "Log" "$F" || true
+          sed -i 's/\([^.A-Za-z_]\)Log\./\1lime.utils.Log./g' "$F"
+          echo "--- Log lines after patch ---"
+          grep -n "Log" "$F" || true
+          if grep -nE '(^|[^.A-Za-z_])Log\.' "$F"; then
+            echo "Patch did not replace every bare Log. reference"
+            exit 1
+          fi
 
       - name: Build HTML5
         run: haxelib run lime build html5 -release
